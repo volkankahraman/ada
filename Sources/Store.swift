@@ -209,7 +209,8 @@ final class Store: ObservableObject {
     }
 
     private func describe(_ tool: String?, _ input: [String: Any]?) -> String? {
-        guard let tool else { return nil }
+        guard let raw = tool else { return nil }
+        let tool = toolName(raw).title
         let i = input ?? [:]
         let detail = i["command"] ?? i["file_path"] ?? i["pattern"] ?? i["url"] ?? i["description"]
         return detail.map { "\(tool) · \($0)" } ?? tool

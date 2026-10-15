@@ -453,6 +453,14 @@ struct Markdown: View {
     }
 }
 
+/// MCP tools arrive as `mcp__<server>__<tool>`: "mcp__ccd_directory__request_directory" -> ("Request directory", "ccd directory").
+func toolName(_ raw: String) -> (title: String, server: String?) {
+    let parts = raw.components(separatedBy: "__")
+    guard parts.count >= 3, parts[0] == "mcp" else { return (raw, nil) }
+    let tool = parts[2...].joined(separator: " ").replacingOccurrences(of: "_", with: " ")
+    return (tool.prefix(1).uppercased() + tool.dropFirst(), parts[1].replacingOccurrences(of: "_", with: " "))
+}
+
 struct PermissionCard: View {
     let permission: Permission
     let session: Session
@@ -460,14 +468,20 @@ struct PermissionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(permission.tool, systemImage: "exclamationmark.triangle.fill")
-                .font(mono).foregroundStyle(.orange)
-            Text(preview)
-                .font(.system(size: 11, design: .monospaced))
-                .lineLimit(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(10)
-                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+            let name = toolName(permission.tool)
+            HStack(spacing: 6) {
+                Label(name.title, systemImage: "exclamationmark.triangle.fill")
+                    .font(mono).foregroundStyle(.orange)
+                if let server = name.server { Tag(text: server) }
+            }
+            if !permission.input.isEmpty { // nothing to show for argument-less tools
+                Text(preview)
+                    .font(.system(size: 11, design: .monospaced))
+                    .lineLimit(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+            }
             HStack(spacing: 8) {
                 button("Deny", .white.opacity(0.12), .white, .deny)
                 button("Allow Once", .white, .black, .once)
