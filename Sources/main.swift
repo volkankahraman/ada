@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var screen: NSScreen { NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0] }
 
     func applicationDidFinishLaunching(_ note: Notification) {
+        Setup.onLaunch()
         let dir = NSHomeDirectory() + "/.ada"
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         do {
@@ -95,6 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+Setup.cli(CommandLine.arguments) // exits when given --install-hooks/--uninstall-hooks
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

@@ -7,6 +7,7 @@ APP=build/Ada.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Ada "$APP/Contents/MacOS/Ada"
+cp hook.sh "$APP/Contents/Resources/hook.sh" # installed to ~/.ada on launch
 
 # App icon from assets/logo.png (1024x1024).
 ICONSET=$(mktemp -d)/Ada.iconset
