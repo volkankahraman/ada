@@ -102,6 +102,9 @@ final class Store: ObservableObject {
               let event = e["hook_event_name"] as? String
         else { return client.reply() }
 
+        // Opening a chat in the Claude app starts (and later ends) its process without doing anything;
+        // only real activity puts a chat on the island.
+        if sessions[id] == nil && (event == "SessionStart" || event == "SessionEnd") { return client.reply() }
         var s = sessions[id] ?? Session(id: id, cwd: e["cwd"] as? String ?? "")
         if let b = headers["x-bundle"], !b.isEmpty, b != s.bundleID {
             s.bundleID = b
