@@ -180,9 +180,11 @@ final class Store: ObservableObject {
             s.subagents = 0
             release(&s)
         case "SessionEnd":
+            // The desktop app ends a chat's process when it goes idle and starts a new one later, so this is not
+            // "the chat is gone". Keep the row as done; it falls asleep and Clear done / x removes it.
             release(&s)
-            sessions[id] = nil
-            return client.reply()
+            s.status = .done
+            s.activity = nil
         default:
             break
         }
