@@ -34,8 +34,7 @@ struct IslandView: View {
     // MARK: collapsed pill around the notch
 
     private var collapsed: some View {
-        let n = store.active.count
-        return HStack(spacing: 0) {
+        HStack(spacing: 0) {
             HStack(spacing: 6) {
                 if let s = store.overall {
                     StatusIcon(status: s)
@@ -45,10 +44,20 @@ struct IslandView: View {
             .padding(.leading, 10)
             .frame(width: store.wing, alignment: .leading)
             Color.clear.frame(width: store.notchWidth)
-            Text(n == 0 ? "" : "\(n) session\(n == 1 ? "" : "s")")
-                .foregroundStyle(.secondary)
-                .padding(.trailing, 10)
-                .frame(width: store.wing, alignment: .trailing)
+            // One colored count per state instead of "N sessions": orange needs you, blue working, green done.
+            HStack(spacing: 8) {
+                ForEach([Status.waiting, .working, .done], id: \.self) { st in
+                    let c = store.active.filter { $0.status == st }.count
+                    if c > 0 {
+                        HStack(spacing: 4) {
+                            Circle().fill(color(st)).frame(width: 7, height: 7)
+                            Text("\(c)").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .padding(.trailing, 10)
+            .frame(width: store.wing, alignment: .trailing)
         }
         .font(mono)
         .lineLimit(1)
@@ -175,6 +184,7 @@ struct SessionRow: View {
             Spacer(minLength: 8)
             if let app = s.appName { Tag(text: app) }
             Tag(text: age(s.updated))
+            close
         }
         .font(.system(size: 12))
         .padding(.horizontal, 10).padding(.vertical, 4)
@@ -202,6 +212,7 @@ struct SessionRow: View {
                 if s.subagents > 0 { Tag(text: "+\(s.subagents) agent\(s.subagents == 1 ? "" : "s")") }
                 if let app = s.appName { Tag(text: app) }
                 TimelineView(.periodic(from: .now, by: 30)) { _ in Tag(text: age(s.updated)) }
+                if s.status == .done { close }
             }
             if let p = s.permissions.first {
                 if p.tool == "AskUserQuestion" {
@@ -220,6 +231,16 @@ struct SessionRow: View {
         .background(s.permissions.isEmpty && s.status != .waiting ? .clear : Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
         .contentShape(Rectangle())
         .onTapGesture { store.focus(s) }
+    }
+
+    /// Drops this one finished chat from the list; it comes back on its next event.
+    private var close: some View {
+        Button { store.dismiss(session.id) } label: {
+            Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                .frame(width: 20, height: 20).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Remove from list")
     }
 
     private func oneLine(_ t: String) -> String {

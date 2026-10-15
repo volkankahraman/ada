@@ -74,6 +74,11 @@ final class Store: ObservableObject {
         if sessions.isEmpty { setExpanded(false) }
     }
 
+    func dismiss(_ id: String) {
+        sessions[id] = nil
+        if sessions.isEmpty { setExpanded(false) }
+    }
+
     var pendingCount: Int { sessions.values.reduce(0) { $0 + $1.permissions.count } }
 
     /// Only "Got it" retires the welcome; a stray click outside just folds the island and the card waits there.
@@ -106,7 +111,9 @@ final class Store: ObservableObject {
             s.hostID = h
         }
         s.updated = Date()
-        if ["SessionStart", "UserPromptSubmit", "Stop"].contains(event), let t = Self.chatTitle(e["transcript_path"] as? String) {
+        // Re-read on turn boundaries (renames), and on any event while unknown, e.g. a chat already running when Ada started.
+        if s.chatTitle == nil || ["SessionStart", "UserPromptSubmit", "Stop"].contains(event),
+           let t = Self.chatTitle(e["transcript_path"] as? String) {
             s.chatTitle = t
         }
 
