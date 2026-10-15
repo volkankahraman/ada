@@ -6,10 +6,40 @@ final class HostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
+/// Takes the keyboard only while you type in a text field (the plan notes), so it never steals focus otherwise.
+/// Non-activating: the app you were in stays frontmost the whole time.
+final class KeyPanel: NSPanel {
+    private var typing = false
+    override var canBecomeKey: Bool { typing }
+
+    override func sendEvent(_ event: NSEvent) {
+        // hitTest takes superview coordinates, which are window coordinates for the content view.
+        if event.type == .leftMouseDown, !isKeyWindow, contentView?.hitTest(event.locationInWindow) is NSText {
+            typing = true
+            makeKey()
+        }
+        super.sendEvent(event)
+    }
+
+    /// Hand the keyboard back once the field is gone (decided, closed). Clicking another window does that on its own.
+    func releaseKey() {
+        guard isKeyWindow, !(firstResponder is NSText) else { return }
+        typing = false
+        // ponytail: ordering out a key non-activating panel returns focus to the frontmost app; resignKey() alone does not.
+        orderOut(nil)
+        orderFrontRegardless()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        typing = false
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = Store()
     var server: HookServer!
-    var panel: NSPanel!
+    var panel: KeyPanel!
     let panelSize = CGSize(width: 720, height: 900) // tall enough for a multi-question card
     var lastPending = 0
     var autoOpened = false
@@ -28,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         server.onRequest = { [store] h, b, c in store.handle(h, b, c) }
 
-        panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel = KeyPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -87,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             store.setExpanded(false)
         }
         lastPending = pending
+        panel.releaseKey()
 
         // A click anywhere outside closes it.
         if store.expanded && !inside && NSEvent.pressedMouseButtons & 1 != 0 {

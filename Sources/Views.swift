@@ -182,6 +182,8 @@ struct SessionRow: View {
             if let p = s.permissions.first {
                 if p.tool == "AskUserQuestion" {
                     QuestionCard(permission: p, session: s, store: store).id(p.id)
+                } else if p.tool == "ExitPlanMode" {
+                    PlanCard(permission: p, session: s, store: store).id(p.id)
                 } else {
                     PermissionCard(permission: p, session: s, store: store)
                 }
@@ -324,6 +326,130 @@ struct QuestionCard: View {
             .foregroundStyle(fg)
             .frame(maxWidth: .infinity, minHeight: 28)
             .background(bg, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// Claude's plan from ExitPlanMode: approve it, or send notes so Claude keeps planning.
+struct PlanCard: View {
+    let permission: Permission
+    let session: Session
+    let store: Store
+    @State private var notes = ""
+
+    var body: some View {
+        let note = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Plan ready for review", systemImage: "list.bullet.clipboard.fill")
+                .font(mono).foregroundStyle(.orange)
+            ScrollView {
+                Markdown(text: permission.input["plan"] as? String ?? "")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            }
+            .frame(maxHeight: 320)
+            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+            // Typing here makes the panel key for a moment; see KeyPanel.
+            TextEditor(text: $notes)
+                .font(.system(size: 12))
+                .scrollContentBackground(.hidden)
+                .frame(height: 48)
+                .padding(6)
+                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(alignment: .topLeading) {
+                    if notes.isEmpty {
+                        Text("What should change?").foregroundStyle(.tertiary).padding(.horizontal, 11).padding(.vertical, 6)
+                            .allowsHitTesting(false)
+                    }
+                }
+            HStack(spacing: 8) {
+                Button { store.decide(session.id, .handOff) } label: { pill("Answer in Claude", .white.opacity(0.12), .white) }
+                Button { store.decide(session.id, .feedback(note)) } label: {
+                    pill("Keep planning", note.isEmpty ? .white.opacity(0.06) : .white, note.isEmpty ? .gray : .black)
+                }
+                .disabled(note.isEmpty)
+                Button { store.decide(session.id, .once) } label: { pill("Approve", .orange, .black) }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func pill(_ title: String, _ bg: Color, _ fg: Color) -> some View {
+        Text(title)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(fg)
+            .frame(maxWidth: .infinity, minHeight: 28)
+            .background(bg, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// Just enough Markdown for a plan: block structure per line, inline styling from `AttributedString(markdown:)`.
+struct Markdown: View {
+    let text: String
+
+    private enum Block { case heading(Int, String), item(String, String, Int), quote(String), code(String), rule, text(String) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, b in view(b) }
+        }
+    }
+
+    @ViewBuilder private func view(_ b: Block) -> some View {
+        switch b {
+        case .heading(let level, let s):
+            Text(inline(s)).font(.system(size: [15, 14, 13][min(level, 3) - 1], weight: .bold)).padding(.top, 4)
+        case .item(let mark, let s, let depth):
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(mark).foregroundStyle(.secondary)
+                Text(inline(s))
+            }
+            .padding(.leading, CGFloat(depth) * 14)
+        case .quote(let s):
+            Text(inline(s)).foregroundStyle(.secondary).padding(.leading, 8)
+                .overlay(alignment: .leading) { Rectangle().fill(.secondary).frame(width: 2) }
+        case .code(let s):
+            Text(s).font(.system(size: 11, design: .monospaced))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(6)
+                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+        case .rule:
+            Divider()
+        case .text(let s):
+            Text(inline(s))
+        }
+    }
+
+    /// ponytail: one block per line, so hard-wrapped paragraphs keep their breaks. Claude's plans don't hard-wrap.
+    private var blocks: [Block] {
+        var out: [Block] = [], code: [String]?
+        for raw in text.components(separatedBy: .newlines) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("```") {
+                if let c = code { out.append(.code(c.joined(separator: "\n"))) }
+                code = code == nil ? [] : nil
+            } else if code != nil {
+                code?.append(raw)
+            } else if line.isEmpty {
+                continue
+            } else if let m = line.wholeMatch(of: #/(#{1,6})\s+(.+)/#) {
+                out.append(.heading(m.1.count, String(m.2)))
+            } else if line.wholeMatch(of: #/(-\s*){3,}|(\*\s*){3,}|(_\s*){3,}/#) != nil {
+                out.append(.rule)
+            } else if let m = line.wholeMatch(of: #/([-*+]|\d+[.)])\s+(.+)/#) {
+                let depth = raw.prefix { $0 == " " || $0 == "\t" }.count / 2
+                out.append(.item(m.1.first!.isNumber ? String(m.1) : "•", String(m.2), depth))
+            } else if line.hasPrefix(">") {
+                out.append(.quote(String(line.dropFirst()).trimmingCharacters(in: .whitespaces)))
+            } else {
+                out.append(.text(line))
+            }
+        }
+        if let c = code { out.append(.code(c.joined(separator: "\n"))) } // unclosed fence
+        return out
+    }
+
+    private func inline(_ s: String) -> AttributedString {
+        (try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
     }
 }
 

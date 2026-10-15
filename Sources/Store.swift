@@ -10,6 +10,7 @@ enum Choice {
     case deny, once, always, bypass
     case answer([String: String]) // AskUserQuestion: question text -> chosen label(s)
     case handOff                  // no decision; answer it in Claude instead
+    case feedback(String)         // ExitPlanMode: deny with your notes so Claude revises the plan
 }
 
 struct Permission: Identifiable {
@@ -181,6 +182,7 @@ final class Store: ObservableObject {
             input["answers"] = a
             decision = ["behavior": "allow", "updatedInput": input]
         case .deny: decision = ["behavior": "deny", "message": "Denied from Ada"]
+        case .feedback(let m): decision = ["behavior": "deny", "message": m]
         case .once: decision = ["behavior": "allow"]
         case .always: decision = ["behavior": "allow", "updatedPermissions": p.suggestions]
         // Claude ignores this unless bypass was enabled at launch; then it is a plain allow.
