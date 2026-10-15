@@ -73,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let island = NSRect(x: f.midX - size.width / 2, y: f.maxY - size.height, width: size.width, height: size.height)
         let inside = island.insetBy(dx: -2, dy: -2).contains(NSEvent.mouseLocation)
         // The panel is much bigger than the island; let clicks fall through everywhere else.
-        panel.ignoresMouseEvents = !inside
+        if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside } // setting it even unchanged costs a window-server round trip
 
         // Opens on click (see IslandView). A new approval request pops it open on its own,
         // and it folds back once that request is answered.

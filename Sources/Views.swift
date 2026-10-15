@@ -137,10 +137,17 @@ struct StatusIcon: View {
     let status: Status
     var body: some View {
         switch status {
+        // Opacity steps a few times per second. symbolEffect and variableValue changes both redraw at full display rate (~20% CPU idle).
         case .working:
-            Image(systemName: "waveform").foregroundStyle(.blue).symbolEffect(.variableColor.iterative)
+            TimelineView(.periodic(from: .now, by: 0.35)) { t in
+                let step = Int(t.date.timeIntervalSinceReferenceDate / 0.35) % 4
+                Image(systemName: "waveform").foregroundStyle(.blue).opacity([0.45, 0.7, 1, 0.7][step])
+            }
         case .waiting:
-            Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange).symbolEffect(.pulse)
+            TimelineView(.periodic(from: .now, by: 0.7)) { t in
+                Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
+                    .opacity(Int(t.date.timeIntervalSinceReferenceDate / 0.7) % 2 == 0 ? 1 : 0.45)
+            }
         case .done:
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
         }
