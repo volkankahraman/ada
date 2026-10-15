@@ -30,17 +30,18 @@ cd ada
 ./build.sh                       # builds build/Ada.app
 cp -R build/Ada.app ~/Applications/
 open ~/Applications/Ada.app
-./install-hooks.py               # adds Ada's hooks to ~/.claude/settings.json
 ```
 
-`install-hooks.py` backs up `~/.claude/settings.json` to `settings.json.bak-ada` first. Running it again is safe. Desktop sessions pick up the hooks right away; a CLI session picks them up when it starts.
+That's it. On launch Ada copies its hook to `~/.ada/hook.sh` and adds its hooks to `~/.claude/settings.json`, keeping everything else in that file. It backs the file up to `settings.json.bak-ada` before any change and leaves it alone when the hooks are already current. Desktop sessions pick up the hooks right away; a CLI session picks them up when it starts.
 
 To start Ada at login, add `~/Applications/Ada.app` under System Settings → General → Login Items.
 
 ### Uninstall
 
+Quit Ada first (it re-adds its hooks on launch), then:
+
 ```sh
-./install-hooks.py --uninstall
+~/Applications/Ada.app/Contents/MacOS/Ada --uninstall-hooks ~/.claude/settings.json ~/.ada/hook.sh
 rm -rf ~/Applications/Ada.app ~/.ada
 ```
 
@@ -70,8 +71,8 @@ This uses undocumented endpoints that can change without notice. If the bar show
 | `Sources/Views.swift` | Notch shape, session rows, approval and question cards |
 | `Sources/Usage.swift` | Plan usage and keychain token refresh |
 | `Sources/main.swift` | Notch panel, click handling, timers |
+| `Sources/Setup.swift` | Adds or removes the hooks in `~/.claude/settings.json` |
 | `hook.sh` | Hook entry point that Claude Code runs |
-| `install-hooks.py` | Adds or removes the hooks in `~/.claude/settings.json` |
 
 ## License
 
