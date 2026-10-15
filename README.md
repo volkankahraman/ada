@@ -1,0 +1,76 @@
+# Ada
+
+A Dynamic Island for Claude Code on macOS. Ada lives in the notch and shows what your Claude Code sessions are doing: working, waiting for you, or done. You can approve tool calls and answer Claude's questions without switching windows.
+
+Works with sessions in the Claude desktop app (Code tab) and the `claude` CLI.
+
+## Features
+
+- **Session list in the notch.** Click the notch to open it; click outside to close it.
+- **Live status** for each chat: the tool it is running (`Bash · npm test`), subagents, context compaction, errors.
+- **Approve from the island.** Deny, Allow Once, Allow All (applies Claude's suggested rule), or Bypass.
+- **Answer questions.** Claude's multiple-choice questions (`AskUserQuestion`) appear as a card you can fill in and send.
+- **Jump to the chat.** Click a row to open that exact chat in the Claude desktop app, even if the window is minimized. For CLI sessions, Ada brings the terminal to the front.
+- **Plan usage.** Shows your 5-hour session usage and when it resets.
+- **Sounds** when a turn finishes or needs you. You can mute them.
+
+## Requirements
+
+- macOS 14 or later. A Mac with a notch looks best, but Ada also works without one.
+- Swift 5.9+ (Xcode or the Command Line Tools).
+- Claude Code, either the desktop app or the CLI.
+
+## Install
+
+```sh
+git clone https://github.com/volkankahraman/ada.git
+cd ada
+./build.sh                       # builds build/Ada.app
+cp -R build/Ada.app ~/Applications/
+open ~/Applications/Ada.app
+./install-hooks.py               # adds Ada's hooks to ~/.claude/settings.json
+```
+
+`install-hooks.py` backs up `~/.claude/settings.json` to `settings.json.bak-ada` first. Running it again is safe. Desktop sessions pick up the hooks right away; a CLI session picks them up when it starts.
+
+To start Ada at login, add `~/Applications/Ada.app` under System Settings → General → Login Items.
+
+### Uninstall
+
+```sh
+./install-hooks.py --uninstall
+rm -rf ~/Applications/Ada.app ~/.ada
+```
+
+## How it works
+
+```
+Claude Code ──hook──> ~/.ada/hook.sh ──curl --unix-socket──> Ada.app
+            <─────── decision JSON (approvals, answers) ──────┘
+```
+
+- Every hook event is posted to a unix socket at `~/.ada/ada.sock`. Only your user can open it (mode `0600`).
+- `PermissionRequest` hooks wait until you click something on the island. If you answer in Claude instead, Ada notices that the hook went away and drops the card.
+- If Ada is not running, the hook exits at once and Claude Code behaves as if there were no hook.
+
+## Usage bar and your Claude login
+
+The usage bar calls Claude's OAuth usage endpoint with the login that Claude Code keeps in the macOS keychain (`Claude Code-credentials`). When that access token expires, Ada refreshes it and writes the new token back to the same keychain item, the same way Claude Code does. Your login never leaves your Mac except in requests to Anthropic.
+
+This uses undocumented endpoints that can change without notice. If the bar shows `Login expired`, run `claude auth login` once.
+
+## Project layout
+
+| Path | What it does |
+| --- | --- |
+| `Sources/Server.swift` | Minimal HTTP over a unix socket |
+| `Sources/Store.swift` | Session state and hook decisions |
+| `Sources/Views.swift` | Notch shape, session rows, approval and question cards |
+| `Sources/Usage.swift` | Plan usage and keychain token refresh |
+| `Sources/main.swift` | Notch panel, click handling, timers |
+| `hook.sh` | Hook entry point that Claude Code runs |
+| `install-hooks.py` | Adds or removes the hooks in `~/.claude/settings.json` |
+
+## License
+
+MIT. Ada is not affiliated with Anthropic.
