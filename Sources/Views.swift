@@ -185,11 +185,13 @@ struct SessionRow: View {
                 } else {
                     PermissionCard(permission: p, session: s, store: store)
                 }
+            } else if let a = s.ask, s.status == .waiting {
+                AskCard(question: a.question, options: a.options) { store.focus(s) }
             }
         }
         .font(.system(size: 12))
         .padding(10)
-        .background(s.permissions.isEmpty ? .clear : Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+        .background(s.permissions.isEmpty && s.status != .waiting ? .clear : Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
         .contentShape(Rectangle())
         .onTapGesture { store.focus(s) }
     }
@@ -213,6 +215,33 @@ struct Tag: View {
             .padding(.horizontal, 7).padding(.vertical, 3)
             .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 5))
             .fixedSize()
+    }
+}
+
+/// The desktop's end-of-turn question. Options are shown, not clickable: answering means sending a message in Claude.
+struct AskCard: View {
+    let question: String
+    let options: [String]
+    let open: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(question, systemImage: "bubble.left.and.exclamationmark.bubble.right.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            if !options.isEmpty {
+                HStack(spacing: 6) { ForEach(options, id: \.self) { Tag(text: $0) } }
+            }
+            Button(action: open) {
+                Text("Open chat to answer")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .background(.orange, in: RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
 

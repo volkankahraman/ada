@@ -34,6 +34,7 @@ struct Session: Identifiable {
     var appName: String?
     var hostID: String?     // Claude desktop's own id (local_…), set when the session runs in the desktop app
     var permissions: [Permission] = []
+    var ask: (question: String, options: [String])? // desktop "next step" question the turn ended on
 
     var chatTitle: String?  // the name shown in Claude's sidebar
     /// Folder name, except for the throwaway folders the desktop app makes for sessions without a project.
@@ -99,10 +100,18 @@ final class Store: ObservableObject {
                 s.prompt = p
             }
             s.reply = nil
+            s.ask = nil
             s.status = .working
             release(&s)
         case "PreToolUse":
-            s.activity = describe(e["tool_name"] as? String, e["tool_input"] as? [String: Any])
+            let tool = e["tool_name"] as? String ?? ""
+            let input = e["tool_input"] as? [String: Any]
+            // The desktop app's end-of-turn box. No hook waits on it, so we can only show it and open the chat.
+            if tool.hasSuffix("ccd_turn__wrap_up") {
+                let actions = input?["actions"] as? [[String: Any]] ?? []
+                s.ask = (input?["ask"] as? String).map { ($0, actions.compactMap { $0["label"] as? String }) }
+            }
+            s.activity = describe(tool, input)
             if s.permissions.isEmpty { s.status = .working }
         case "PostToolUse":
             if s.permissions.isEmpty { s.status = .working }
@@ -132,8 +141,8 @@ final class Store: ObservableObject {
             play("Funk")
             return // answered later from the island
         case "Stop":
-            if s.status == .working { play("Glass") }
-            s.status = .done
+            if s.status == .working { play(s.ask == nil ? "Glass" : "Funk") }
+            s.status = s.ask == nil ? .done : .waiting // a turn that ends on a question is blocked on you
             s.reply = e["last_assistant_message"] as? String ?? s.reply
             s.activity = nil
             s.subagents = 0
