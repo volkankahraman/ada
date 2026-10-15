@@ -41,6 +41,8 @@ struct Session: Identifiable {
     /// Folder name, except for the throwaway folders the desktop app makes for sessions without a project.
     var project: String? { cwd.contains("/scratch-workspaces/") || cwd.isEmpty ? nil : (cwd as NSString).lastPathComponent }
     var headline: String { chatTitle ?? title ?? "New session" }
+    /// Done and quiet for a while: shown as a gray one-liner and left out of the pill. Any new event wakes it.
+    var asleep: Bool { status == .done && -updated.timeIntervalSinceNow > Store.sleepAfter }
 }
 
 final class Store: ObservableObject {
@@ -66,6 +68,12 @@ final class Store: ObservableObject {
             : CGSize(width: notchWidth + 2 * wing + 2 * ear, height: notchHeight)
     }
 
+    /// Drops finished chats (they come back on their next event). An empty list folds the island to sleep.
+    func clearDone() {
+        sessions = sessions.filter { $0.value.status != .done }
+        if sessions.isEmpty { setExpanded(false) }
+    }
+
     var pendingCount: Int { sessions.values.reduce(0) { $0 + $1.permissions.count } }
 
     /// Only "Got it" retires the welcome; a stray click outside just folds the island and the card waits there.
@@ -79,7 +87,8 @@ final class Store: ObservableObject {
         guard open != expanded else { return }
         withAnimation(.spring(duration: 0.45, bounce: 0.25)) { expanded = open }
     }
-    var active: [Session] { Array(sessions.values) }
+    static let sleepAfter: TimeInterval = 10 * 60
+    var active: [Session] { sessions.values.filter { !$0.asleep } }
     var overall: Status? { active.map(\.status).min() }
 
     func handle(_ headers: [String: String], _ body: Data, _ client: HookClient) {

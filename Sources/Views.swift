@@ -76,6 +76,9 @@ struct IslandView: View {
                     Text(store.usageError.map { "Ada · \($0)" } ?? "Ada").font(mono).foregroundStyle(.secondary)
                 }
                 Spacer()
+                if store.sessions.values.contains(where: { $0.status == .done }) {
+                    Button { store.clearDone() } label: { Label("Clear done", systemImage: "xmark.circle").font(.system(size: 11)) }
+                }
                 Button { store.sound.toggle() } label: {
                     Image(systemName: store.sound ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 }
@@ -161,8 +164,27 @@ struct SessionRow: View {
     let store: Store
 
     var body: some View {
+        if session.asleep { sleeping } else { awake }
+    }
+
+    private var sleeping: some View {
         let s = session
-        VStack(alignment: .leading, spacing: 8) {
+        return HStack(spacing: 10) {
+            Circle().fill(.gray).frame(width: 6, height: 6).frame(width: 18)
+            Text((s.project.map { "\($0) · " } ?? "") + oneLine(s.headline)).foregroundStyle(.secondary).lineLimit(1)
+            Spacer(minLength: 8)
+            if let app = s.appName { Tag(text: app) }
+            Tag(text: age(s.updated))
+        }
+        .font(.system(size: 12))
+        .padding(.horizontal, 10).padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture { store.focus(s) }
+    }
+
+    private var awake: some View {
+        let s = session
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 10) {
                 StatusIcon(status: s.status).frame(width: 18, height: 18)
                 VStack(alignment: .leading, spacing: 3) {

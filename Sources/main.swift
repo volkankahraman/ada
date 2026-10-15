@@ -79,6 +79,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in self?.trackMouse() }
         refreshUsage()
         Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in self?.refreshUsage() }
+        // Sessions fall asleep by the clock, not by an event, so redraw once a minute.
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [store] _ in store.objectWillChange.send() }
     }
 
     func refreshUsage() {
