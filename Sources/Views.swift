@@ -254,6 +254,8 @@ struct QuestionCard: View {
 
     private var questions: [[String: Any]] { permission.input["questions"] as? [[String: Any]] ?? [] }
     private var ready: Bool { questions.allSatisfy { !(picks[$0["question"] as? String ?? ""] ?? []).isEmpty } }
+    /// One single-select question: a tap is the whole answer, so it sends right away and there is no Send button.
+    private var oneClick: Bool { questions.count == 1 && !(questions[0]["multiSelect"] as? Bool ?? false) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -262,10 +264,12 @@ struct QuestionCard: View {
             }
             HStack(spacing: 8) {
                 Button { store.decide(session.id, .handOff) } label: { pill("Answer in Claude", .white.opacity(0.12), .white) }
-                Button {
-                    store.decide(session.id, .answer(picks.mapValues { $0.joined(separator: ", ") }))
-                } label: { pill("Send", ready ? .orange : .white.opacity(0.06), ready ? .black : .gray) }
-                .disabled(!ready)
+                if !oneClick {
+                    Button {
+                        store.decide(session.id, .answer(picks.mapValues { $0.joined(separator: ", ") }))
+                    } label: { pill("Send", ready ? .orange : .white.opacity(0.06), ready ? .black : .gray) }
+                    .disabled(!ready)
+                }
             }
             .buttonStyle(.plain)
         }
@@ -304,6 +308,7 @@ struct QuestionCard: View {
     }
 
     private func toggle(_ q: String, _ label: String, _ multi: Bool) {
+        if oneClick { store.decide(session.id, .answer([q: label])); return }
         var cur = picks[q] ?? []
         if multi {
             if let i = cur.firstIndex(of: label) { cur.remove(at: i) } else { cur.append(label) }
