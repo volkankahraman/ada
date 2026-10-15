@@ -7,16 +7,22 @@ enum Setup {
     static let matched: Set = ["PreToolUse", "PostToolUse", "PermissionRequest", "Notification"]
 
     /// Runs on every launch, so hook.sh updates ship with the app. Skips settings when Claude Code isn't installed.
-    static func onLaunch() {
+    /// Returns what happened, in words, for the first-launch welcome.
+    @discardableResult
+    static func onLaunch() -> String {
         let home = NSHomeDirectory()
         var isDir: ObjCBool = false
         do {
             try copyHook(to: home + "/.ada/hook.sh")
-            if FileManager.default.fileExists(atPath: home + "/.claude", isDirectory: &isDir), isDir.boolValue {
-                try apply(settings: home + "/.claude/settings.json", hook: home + "/.ada/hook.sh", install: true)
+            guard FileManager.default.fileExists(atPath: home + "/.claude", isDirectory: &isDir), isDir.boolValue else {
+                return "Claude Code isn't installed yet. Install it, then reopen Ada."
             }
+            let wrote = try apply(settings: home + "/.claude/settings.json", hook: home + "/.ada/hook.sh", install: true)
+            return wrote ? "Added Ada's hooks to ~/.claude/settings.json (old file saved as settings.json.bak-ada)."
+                         : "Ada's hooks are already set up in ~/.claude/settings.json."
         } catch {
             NSLog("ada: setup: \(error.localizedDescription)")
+            return "Couldn't set up Claude Code hooks: \(error.localizedDescription)"
         }
     }
 

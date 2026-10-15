@@ -87,7 +87,9 @@ struct IslandView: View {
             .contentShape(Rectangle())
             .onTapGesture { store.setExpanded(false) }
 
-            if store.sessions.isEmpty {
+            if let w = store.welcome {
+                WelcomeCard(setup: w) { store.dismissWelcome() }
+            } else if store.sessions.isEmpty {
                 Text("No sessions yet").foregroundStyle(.secondary).padding(.vertical, 12)
             }
             // ponytail: capped at 6 rows instead of a scroll view; add scrolling if you run more.
@@ -217,6 +219,34 @@ struct Tag: View {
             .padding(.horizontal, 7).padding(.vertical, 3)
             .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 5))
             .fixedSize()
+    }
+}
+
+/// Shown once, on first launch, so a new user knows Ada is running and where to find it.
+struct WelcomeCard: View {
+    let setup: String
+    let done: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Ada is ready", systemImage: "sparkles").font(.system(size: 14, weight: .bold))
+            Text("Your Claude Code chats show up here while they run: what they're doing, approvals, questions and plans. Click the notch any time to open this panel.")
+                .foregroundStyle(.secondary)
+            Text("Chats already open in the Claude app appear after their next message. Restart any running `claude` CLI sessions.")
+                .foregroundStyle(.secondary)
+            Label(setup, systemImage: "wrench.and.screwdriver").font(.system(size: 11)).foregroundStyle(.tertiary)
+            Button(action: done) {
+                Text("Got it")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .background(.orange, in: RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(12)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
     }
 }
 

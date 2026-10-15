@@ -47,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var screen: NSScreen { NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0] }
 
     func applicationDidFinishLaunching(_ note: Notification) {
-        Setup.onLaunch()
+        let setupNote = Setup.onLaunch()
         let dir = NSHomeDirectory() + "/.ada"
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         do {
@@ -67,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.contentView = HostingView(rootView: IslandView(store: store))
         layout()
         panel.orderFrontRegardless()
+        if !UserDefaults.standard.bool(forKey: "welcomed") { // first launch: say hello instead of sitting there invisible
+            store.welcome = setupNote
+            store.setExpanded(true)
+        }
 
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             self?.layout()

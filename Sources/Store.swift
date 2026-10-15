@@ -54,6 +54,7 @@ final class Store: ObservableObject {
     var notchHeight: CGFloat = 32
     @Published var usage: Usage?
     @Published var usageError: String?
+    @Published var welcome: String? // first-launch card; holds the setup result
 
     var sorted: [Session] { sessions.values.sorted { ($0.status, $1.updated) < ($1.status, $0.updated) } }
     /// Island geometry is computed, not measured, so hit-testing and the grow animation agree on it.
@@ -66,6 +67,13 @@ final class Store: ObservableObject {
     }
 
     var pendingCount: Int { sessions.values.reduce(0) { $0 + $1.permissions.count } }
+
+    /// Only "Got it" retires the welcome; a stray click outside just folds the island and the card waits there.
+    func dismissWelcome() {
+        welcome = nil
+        UserDefaults.standard.set(true, forKey: "welcomed")
+        setExpanded(false)
+    }
 
     func setExpanded(_ open: Bool) {
         guard open != expanded else { return }
