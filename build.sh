@@ -5,8 +5,17 @@ cd "$(dirname "$0")"
 swift build -c release
 APP=build/Ada.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Ada "$APP/Contents/MacOS/Ada"
+
+# App icon from assets/logo.png (1024x1024).
+ICONSET=$(mktemp -d)/Ada.iconset
+mkdir -p "$ICONSET"
+for s in 16 32 128 256 512; do
+  sips -z $s $s assets/logo.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+  sips -z $((s * 2)) $((s * 2)) assets/logo.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Ada.icns"
 cat > "$APP/Contents/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -15,6 +24,7 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
   <key>CFBundleIdentifier</key><string>dev.volkankahraman.ada</string>
   <key>CFBundleName</key><string>Ada</string>
   <key>CFBundleExecutable</key><string>Ada</string>
+  <key>CFBundleIconFile</key><string>Ada</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>

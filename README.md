@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/banner.png" alt="Ada, a Dynamic Island for Claude Code" width="100%"></p>
+
 # Ada
 
 A Dynamic Island for Claude Code on macOS. Ada lives in the notch and shows what your Claude Code sessions are doing: working, waiting for you, or done. You can approve tool calls and answer Claude's questions without switching windows.
