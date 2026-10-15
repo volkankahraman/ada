@@ -2,11 +2,11 @@
 # Builds build/Ada.app (menu-bar-less agent app, ad-hoc signed).
 set -e
 cd "$(dirname "$0")"
-swift build -c release
+swift build -c release --arch arm64 --arch x86_64 # universal: Apple Silicon and Intel
 APP=build/Ada.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/Ada "$APP/Contents/MacOS/Ada"
+cp .build/apple/Products/Release/Ada "$APP/Contents/MacOS/Ada"
 cp hook.sh "$APP/Contents/Resources/hook.sh" # installed to ~/.ada on launch
 
 # App icon from assets/logo.png (1024x1024).
@@ -27,7 +27,8 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
   <key>CFBundleExecutable</key><string>Ada</string>
   <key>CFBundleIconFile</key><string>Ada</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
 </dict>

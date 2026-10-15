@@ -11,18 +11,34 @@ Works with sessions in the Claude desktop app (Code tab) and the `claude` CLI.
 - **Session list in the notch.** Click the notch to open it; click outside to close it.
 - **Live status** for each chat: the tool it is running (`Bash · npm test`), subagents, context compaction, errors.
 - **Approve from the island.** Deny, Allow Once, Allow All (applies Claude's suggested rule), or Bypass.
-- **Answer questions.** Claude's multiple-choice questions (`AskUserQuestion`) appear as a card you can fill in and send.
+- **Answer questions.** Claude's multiple-choice questions (`AskUserQuestion`) appear as a card. A single one-choice question is answered with one click; longer ones get a Send button.
+- **Review plans.** When Claude leaves plan mode, the plan shows as formatted Markdown. Approve it, or type notes and send it back for another round.
+- **Know when you're needed.** If a chat ends its turn on a question for you, it turns orange ("Needs you") with a sound, and shows the question with a button that opens the chat.
 - **Jump to the chat.** Click a row to open that exact chat in the Claude desktop app, even if the window is minimized. For CLI sessions, Ada brings the terminal to the front.
 - **Plan usage.** Shows your 5-hour session usage and when it resets.
 - **Sounds** when a turn finishes or needs you. You can mute them.
+- **Sets itself up.** On first launch Ada adds its hooks to Claude Code; there is nothing to configure.
+- **Light.** Native Swift, no Electron. Under 1% CPU while sessions run, about 50 MB of memory.
 
 ## Requirements
 
 - macOS 14 or later. A Mac with a notch looks best, but Ada also works without one.
-- Swift 5.9+ (Xcode or the Command Line Tools).
 - Claude Code, either the desktop app or the CLI.
+- To build from source: Swift 5.9+ (Xcode or the Command Line Tools).
 
 ## Install
+
+### Download
+
+1. Download `Ada-<version>.zip` from the [latest release](https://github.com/volkankahraman/ada/releases/latest) and unzip it.
+2. Move `Ada.app` to `~/Applications` (or `/Applications`) and open it.
+3. Ada is not notarized yet, so macOS blocks the first launch. Open System Settings → Privacy & Security, scroll down, and click **Open Anyway** next to Ada. Or run:
+
+   ```sh
+   xattr -dr com.apple.quarantine ~/Applications/Ada.app
+   ```
+
+### Build from source
 
 ```sh
 git clone https://github.com/volkankahraman/ada.git
