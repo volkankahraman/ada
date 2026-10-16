@@ -247,6 +247,7 @@ final class Store: ObservableObject {
 
     func focus(_ s: Session) {
         defer { setExpanded(false) }
+        if s.status == .done { sessions[s.id] = nil } // opening a finished chat counts as seen
         // Desktop sessions: the app's own "continue session" link selects that chat and restores a minimized window.
         if let h = s.hostID, let link = URL(string: "claude://code/continue?session=\(h)") {
             NSWorkspace.shared.open(link)
