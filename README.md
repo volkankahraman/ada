@@ -8,13 +8,14 @@ Works with sessions in the Claude desktop app (Code tab) and the `claude` CLI.
 
 ## Features
 
-- **Session list in the notch.** Click the notch to open it; click outside to close it.
+- **Session list in the notch.** Click the notch to open it; click outside to close it. The pill shows a colored count per state: orange needs you, blue working, green done.
 - **Live status** for each chat: the tool it is running (`Bash · npm test`), subagents, context compaction, errors.
 - **Approve from the island.** Deny, Allow Once, Allow All (applies Claude's suggested rule), or Bypass.
 - **Answer questions.** Claude's multiple-choice questions (`AskUserQuestion`) appear as a card. A single one-choice question is answered with one click; longer ones get a Send button.
 - **Review plans.** When Claude leaves plan mode, the plan shows as formatted Markdown. Approve it, or type notes and send it back for another round.
 - **Know when you're needed.** If a chat ends its turn on a question for you, it turns orange ("Needs you") with a sound, and shows the question with a button that opens the chat.
-- **Jump to the chat.** Click a row to open that exact chat in the Claude desktop app, even if the window is minimized. For CLI sessions, Ada brings the terminal to the front.
+- **Jump to the chat.** Click a row to open that exact chat in the Claude desktop app, even if the window is minimized. For CLI sessions, Ada brings the terminal to the front. Opening a finished chat removes it from the list.
+- **Tidy list.** Finished chats fall asleep after 10 minutes as a gray one-line row. Remove one with its ✕, or all of them with Clear done; an empty list shrinks the island back to the notch.
 - **Plan usage.** Shows your 5-hour session usage and when it resets.
 - **Sounds** when a turn finishes or needs you. You can mute them.
 - **Sets itself up.** On first launch Ada adds its hooks to Claude Code; there is nothing to configure.
