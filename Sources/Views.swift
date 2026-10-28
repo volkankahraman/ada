@@ -99,13 +99,19 @@ struct IslandView: View {
             .contentShape(Rectangle())
             .onTapGesture { store.setExpanded(false) }
 
-            if let w = store.welcome {
-                WelcomeCard(setup: w) { store.dismissWelcome() }
-            } else if store.sessions.isEmpty {
-                Text("No sessions yet").foregroundStyle(.secondary).padding(.vertical, 12)
+            // Scrolls once the rows (or one tall card, e.g. a 4-question form) outgrow the screen.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let w = store.welcome {
+                        WelcomeCard(setup: w) { store.dismissWelcome() }
+                    } else if store.sessions.isEmpty {
+                        Text("No sessions yet").foregroundStyle(.secondary).padding(.vertical, 12)
+                    }
+                    ForEach(store.sorted) { SessionRow(session: $0, store: store) }
+                }
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { store.listHeight = $0 }
             }
-            // ponytail: capped at 6 rows instead of a scroll view; add scrolling if you run more.
-            ForEach(store.sorted.prefix(6)) { SessionRow(session: $0, store: store) }
+            .frame(height: min(store.listHeight, store.maxListHeight))
         }
         .padding(.horizontal, 18 + store.ear)
         .padding(.bottom, 14)
@@ -586,8 +592,17 @@ struct PermissionCard: View {
         case "Write": text = "\(i["file_path"] ?? "")\n\(i["content"] ?? "")"
         case "Edit": text = "\(i["file_path"] ?? "")\n- \(i["old_string"] ?? "")\n+ \(i["new_string"] ?? "")"
         default:
-            let data = try? JSONSerialization.data(withJSONObject: i, options: [.prettyPrinted, .sortedKeys])
-            text = data.map { String(decoding: $0, as: UTF8.self) } ?? ""
+            if let title = i["title"] as? String, let prompt = i["prompt"] as? String {
+                text = "\(title)\n\n\(prompt)" // start_session and similar "do this task" tools: the task is what matters
+            } else {
+                // One "key: value" line per field; strings as plain text, anything nested as compact JSON.
+                text = i.keys.sorted().map { k in
+                    let v = i[k]!
+                    if let str = v as? String { return "\(k): \(str)" }
+                    let data = try? JSONSerialization.data(withJSONObject: v, options: [.sortedKeys, .withoutEscapingSlashes, .fragmentsAllowed])
+                    return "\(k): " + (data.map { String(decoding: $0, as: UTF8.self) } ?? "\(v)")
+                }.joined(separator: "\n")
+            }
         }
         return String(text.prefix(800))
     }

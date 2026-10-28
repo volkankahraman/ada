@@ -101,6 +101,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let right = screen.auxiliaryTopRightArea?.width ?? f.width / 2
         store.notchWidth = max(0, f.width - left - right)
         store.notchHeight = max(screen.safeAreaInsets.top, f.maxY - screen.visibleFrame.maxY, 24)
+        // Room for the list: the panel (or screen, if shorter) minus the header row and padding.
+        store.maxListHeight = min(panelSize.height, f.height - 40) - store.notchHeight - 40
         panel.setFrame(NSRect(x: f.midX - panelSize.width / 2, y: f.maxY - panelSize.height,
                               width: panelSize.width, height: panelSize.height), display: true)
     }

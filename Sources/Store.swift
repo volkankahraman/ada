@@ -54,6 +54,8 @@ final class Store: ObservableObject {
     }
     var notchWidth: CGFloat = 0
     var notchHeight: CGFloat = 32
+    @Published var listHeight: CGFloat = 0
+    var maxListHeight: CGFloat = 700 // set from the screen in layout()
     @Published var usage: Usage?
     @Published var usageError: String?
     @Published var welcome: String? // first-launch card; holds the setup result
