@@ -46,7 +46,9 @@ struct Session: Identifiable {
 }
 
 final class Store: ObservableObject {
-    @Published var sessions: [String: Session] = [:]
+    @Published var sessions: [String: Session] = [:] {
+        didSet { syncBand() }
+    }
     @Published var expanded = false
     @Published var expandedHeight: CGFloat = 200 // measured from the open list; a guess until the first open
     @Published var sound = UserDefaults.standard.object(forKey: "sound") as? Bool ?? true {
@@ -284,5 +286,42 @@ final class Store: ObservableObject {
 
     private func play(_ name: String) {
         if sound { NSSound(named: name)?.play() }
+    }
+
+    private var bandSent = "", bandSentAt = Date.distantPast, bandPending = false
+
+    /// Mirrors the most urgent state to a phone as fake weather, so a fitness band shows it on its watch face
+    /// (a MacroDroid webhook hands the JSON to Gadgetbridge, see README). Off until the `bandURL` default is set.
+    /// Sends only changes, 3 s after the first one so a burst of events is one request, plus a refresh every 30 min.
+    func syncBand() {
+        guard !bandPending, let url = UserDefaults.standard.string(forKey: "bandURL").flatMap(URL.init(string:)),
+              band().text != bandSent || -bandSentAt.timeIntervalSinceNow > 1800 else { return }
+        bandPending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self else { return }
+            bandPending = false
+            let (text, count, code) = band()
+            bandSent = text
+            bandSentAt = Date()
+            // Gadgetbridge's weather JSON: Kelvin, so the band shows `count` °C; condition codes are OpenWeatherMap's.
+            let weather: [String: Any] = ["timestamp": Int(Date().timeIntervalSince1970), "location": "Ada: " + text,
+                                          "currentTemp": 273 + count, "todayMinTemp": 273, "todayMaxTemp": 273 + count,
+                                          "currentConditionCode": code, "isCurrentLocation": 1]
+            var req = URLRequest(url: url, timeoutInterval: 15)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: weather)
+            URLSession.shared.dataTask(with: req) { _, _, error in
+                if let error { NSLog("ada: band: \(error.localizedDescription)") }
+            }.resume()
+        }
+    }
+
+    /// Only counts leave the Mac, never project names or prompts. Thunderstorm, rain, clear.
+    private func band() -> (text: String, count: Int, code: Int) {
+        let waiting = active.filter { $0.status == .waiting }.count, working = active.filter { $0.status == .working }.count
+        if waiting > 0 { return ("\(waiting) need you", waiting, 211) }
+        if working > 0 { return ("\(working) working", working, 500) }
+        return ("all done", 0, 800)
     }
 }

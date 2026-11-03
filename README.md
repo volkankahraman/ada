@@ -18,6 +18,7 @@ Works with sessions in the Claude desktop app (Code tab) and the `claude` CLI.
 - **Tidy list.** Finished chats fall asleep after 10 minutes as a gray one-line row. Remove one with its ✕, or all of them with Clear done; an empty list shrinks the island back to the notch.
 - **Plan usage.** Shows your 5-hour session usage and when it resets.
 - **Sounds** when a turn finishes or needs you. You can mute them.
+- **Status on your wrist (optional).** Mirror the state to a fitness band's weather field through Gadgetbridge. See [Band status](#band-status-optional).
 - **Sets itself up.** On first launch Ada adds its hooks to Claude Code; there is nothing to configure.
 - **Light.** Native Swift, no Electron. Under 1% CPU while sessions run, about 50 MB of memory.
 
@@ -78,6 +79,30 @@ Claude Code ──hook──> ~/.ada/hook.sh ──curl --unix-socket──> Ada
 The usage bar calls Claude's OAuth usage endpoint with the login that Claude Code keeps in the macOS keychain (`Claude Code-credentials`). When that access token expires, Ada refreshes it and writes the new token back to the same keychain item, the same way Claude Code does. Your login never leaves your Mac except in requests to Anthropic.
 
 This uses undocumented endpoints that can change without notice. If the bar shows `Login expired`, run `claude auth login` once.
+
+## Band status (optional)
+
+Ada can show the most urgent state on a band or watch that [Gadgetbridge](https://gadgetbridge.org) supports, without a notification for every event. It posts the state as Gadgetbridge weather JSON to a URL you choose, so a watch face with a weather field shows it at a glance:
+
+| Weather | Temperature | Meaning |
+|---|---|---|
+| Thunderstorm | N °C | N chats need you |
+| Rain | N °C | N chats are working |
+| Clear | 0 °C | All done |
+
+Only the state and the count leave your Mac, never project names or prompts. Ada sends a change about 3 seconds after it happens and repeats the current state every 30 minutes. Weather updates do not vibrate the band.
+
+One way to get the JSON to Gadgetbridge on an Android phone is [MacroDroid](https://www.macrodroid.com):
+
+1. Add a macro with the trigger **Webhook (URL)**. Set an identifier (for example `ada`) and save the request body to a new local string variable `json`.
+2. Add the action **Send Intent**: target **Broadcast**, action `nodomain.freeyourgadget.gadgetbridge.ACTION_GENERIC_WEATHER`, package `nodomain.freeyourgadget.gadgetbridge`, extra `WeatherJson` with the value `{lv=json}` and the type String.
+3. Copy the webhook URL and give it to Ada:
+
+   ```sh
+   defaults write dev.volkankahraman.ada bandURL "https://trigger.macrodroid.com/<device-id>/ada"
+   ```
+
+The band updates within a minute. To turn it off, run `defaults delete dev.volkankahraman.ada bandURL`.
 
 ## Project layout
 
