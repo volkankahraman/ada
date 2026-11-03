@@ -54,6 +54,9 @@ final class Store: ObservableObject {
     @Published var sound = UserDefaults.standard.object(forKey: "sound") as? Bool ?? true {
         didSet { UserDefaults.standard.set(sound, forKey: "sound") }
     }
+    @Published var bandAlerts = UserDefaults.standard.bool(forKey: "bandAlerts") {
+        didSet { UserDefaults.standard.set(bandAlerts, forKey: "bandAlerts") }
+    }
     var notchWidth: CGFloat = 0
     var notchHeight: CGFloat = 32
     @Published var listHeight: CGFloat = 0
@@ -170,10 +173,10 @@ final class Store: ObservableObject {
             s.permissions.append(perm)
             s.status = .waiting
             sessions[id] = s
-            play("Funk")
+            needsYou(s, Self.reason(perm))
             return // answered later from the island
         case "Stop":
-            if s.status == .working { play(s.ask == nil ? "Glass" : "Funk") }
+            if s.status == .working { if let ask = s.ask { needsYou(s, ask.question) } else { play("Glass") } }
             s.status = s.ask == nil ? .done : .waiting // a turn that ends on a question is blocked on you
             s.reply = e["last_assistant_message"] as? String ?? s.reply
             s.activity = nil
@@ -288,25 +291,56 @@ final class Store: ObservableObject {
         if sound { NSSound(named: name)?.play() }
     }
 
-    private var bandSent = "", bandSentAt = Date.distantPast, bandPending = false
+    /// `reason` is what the chat waits for, as the band shows it: a tool name or Claude's question, never a command.
+    private func needsYou(_ s: Session, _ reason: String) {
+        play("Funk")
+        alertBand(title: s.headline, text: reason)
+    }
 
-    /// Mirrors the most urgent state to a phone as fake weather, so a fitness band shows it on its watch face
+    private static func reason(_ p: Permission) -> String {
+        switch p.tool {
+        case "AskUserQuestion":
+            return ((p.input["questions"] as? [[String: Any]])?.first?["question"] as? String) ?? "Has a question"
+        case "ExitPlanMode": return "Plan ready for review"
+        default: return "Needs approval · " + toolName(p.tool).title
+        }
+    }
+
+    private var bandSent = "", bandSentAt = Date.distantPast, bandPending = false, alertedAt = Date.distantPast
+    private var bandURL: URL? { UserDefaults.standard.string(forKey: "bandURL").flatMap(URL.init(string:)) }
+    var bandConfigured: Bool { bandURL != nil }
+
+    /// With the band toggle on, a chat that needs you makes the band buzz: Ada calls the webhook next to `bandURL`
+    /// with "-alert" appended, passing `title` and `text` as query parameters for the macro's phone notification,
+    /// which Gadgetbridge forwards. At most one per 30 s.
+    private func alertBand(title: String, text: String) {
+        guard bandAlerts, let url = bandURL, -alertedAt.timeIntervalSinceNow > 30,
+              var c = URLComponents(string: url.absoluteString + "-alert") else { return }
+        // The band screen is small; long titles and questions only scroll.
+        c.queryItems = [URLQueryItem(name: "title", value: String(title.prefix(40))), URLQueryItem(name: "text", value: String(text.prefix(120)))]
+        guard let alert = c.url else { return }
+        alertedAt = Date()
+        var req = URLRequest(url: alert, timeoutInterval: 15)
+        req.httpMethod = "POST"
+        URLSession.shared.dataTask(with: req) { _, _, error in
+            if let error { NSLog("ada: band alert: \(error.localizedDescription)") }
+        }.resume()
+    }
+
+    /// Mirrors the session counts to a phone as fake weather, so a fitness band shows them on its watch face
     /// (a MacroDroid webhook hands the JSON to Gadgetbridge, see README). Off until the `bandURL` default is set.
     /// Sends only changes, 3 s after the first one so a burst of events is one request, plus a refresh every 30 min.
     func syncBand() {
-        guard !bandPending, let url = UserDefaults.standard.string(forKey: "bandURL").flatMap(URL.init(string:)),
-              band().text != bandSent || -bandSentAt.timeIntervalSinceNow > 1800 else { return }
+        guard !bandPending, let url = bandURL,
+              band().key != bandSent || -bandSentAt.timeIntervalSinceNow > 1800 else { return }
         bandPending = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             guard let self else { return }
             bandPending = false
-            let (text, count, code) = band()
-            bandSent = text
+            var (key, weather) = band()
+            bandSent = key
             bandSentAt = Date()
-            // Gadgetbridge's weather JSON: Kelvin, so the band shows `count` °C; condition codes are OpenWeatherMap's.
-            let weather: [String: Any] = ["timestamp": Int(Date().timeIntervalSince1970), "location": "Ada: " + text,
-                                          "currentTemp": 273 + count, "todayMinTemp": 273, "todayMaxTemp": 273 + count,
-                                          "currentConditionCode": code, "isCurrentLocation": 1]
+            weather["timestamp"] = Int(Date().timeIntervalSince1970)
             var req = URLRequest(url: url, timeoutInterval: 15)
             req.httpMethod = "POST"
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -317,11 +351,18 @@ final class Store: ObservableObject {
         }
     }
 
-    /// Only counts leave the Mac, never project names or prompts. Thunderstorm, rain, clear.
-    private func band() -> (text: String, count: Int, code: Int) {
+    /// Only counts and the usage percent leave the Mac, never project names or prompts.
+    private func band() -> (key: String, weather: [String: Any]) {
         let waiting = active.filter { $0.status == .waiting }.count, working = active.filter { $0.status == .working }.count
-        if waiting > 0 { return ("\(waiting) need you", waiting, 211) }
-        if working > 0 { return ("\(working) working", working, 500) }
-        return ("all done", 0, 800)
+        // The icon shows the most urgent state: thunderstorm, rain, clear (OpenWeatherMap condition codes).
+        let (text, code) = waiting > 0 ? ("\(waiting) need you", 211) : working > 0 ? ("\(working) working", 500) : ("all done", 800)
+        let percent = usage.map { Int($0.percent.rounded()) } ?? 0
+        // Gadgetbridge's weather JSON is in Kelvin. A Huawei band raises today's high to at least the current temperature,
+        // so only the current temperature and the air quality index are free: waiting and working go there, and the
+        // usage percent, nearly always the larger number, goes in the high.
+        let weather: [String: Any] = ["location": "Ada: " + text, "currentConditionCode": code, "isCurrentLocation": 1,
+                                      "currentTemp": 273 + waiting, "todayMaxTemp": 273 + percent, "todayMinTemp": 273,
+                                      "airQuality": ["aqi": working]]
+        return ("\(code) \(waiting) \(working) \(percent)", weather)
     }
 }

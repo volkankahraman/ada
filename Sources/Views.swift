@@ -88,6 +88,12 @@ struct IslandView: View {
                 if store.sessions.values.contains(where: { $0.status == .done }) {
                     Button { store.clearDone() } label: { Label("Clear done", systemImage: "xmark.circle").font(.system(size: 11)) }
                 }
+                if store.bandConfigured {
+                    Button { store.bandAlerts.toggle() } label: {
+                        Image(systemName: store.bandAlerts ? "applewatch.radiowaves.left.and.right" : "applewatch.slash")
+                    }
+                    .help(store.bandAlerts ? "Band buzzes when a chat needs you" : "Band alerts off")
+                }
                 Button { store.sound.toggle() } label: {
                     Image(systemName: store.sound ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 }

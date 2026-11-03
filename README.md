@@ -82,15 +82,18 @@ This uses undocumented endpoints that can change without notice. If the bar show
 
 ## Band status (optional)
 
-Ada can show the most urgent state on a band or watch that [Gadgetbridge](https://gadgetbridge.org) supports, without a notification for every event. It posts the state as Gadgetbridge weather JSON to a URL you choose, so a watch face with a weather field shows it at a glance:
+Ada can show your sessions on a band or watch that [Gadgetbridge](https://gadgetbridge.org) supports, without a notification for every event. It posts them as Gadgetbridge weather JSON to a URL you choose, so a watch face with weather fields shows them at a glance:
 
-| Weather | Temperature | Meaning |
-|---|---|---|
-| Thunderstorm | N °C | N chats need you |
-| Rain | N °C | N chats are working |
-| Clear | 0 °C | All done |
+| Weather field | Meaning |
+|---|---|
+| Condition | The most urgent state: thunderstorm when a chat needs you, rain while one is working, clear when all are done |
+| Current temperature | Chats that need you |
+| Air quality index | Chats that are working |
+| Today's high | Your 5-hour plan usage in percent |
 
-Only the state and the count leave your Mac, never project names or prompts. Ada sends a change about 3 seconds after it happens and repeats the current state every 30 minutes. Weather updates do not vibrate the band.
+Any watch face with a weather icon and temperature shows the first two. A face made for Ada can show all of them. Huawei bands raise today's high to at least the current temperature, which is why the usage percent, not a count, goes there.
+
+Only these counts and the usage percent leave your Mac, never project names or prompts. Ada sends a change about 3 seconds after it happens and repeats the current state every 30 minutes. Weather updates do not vibrate the band.
 
 One way to get the JSON to Gadgetbridge on an Android phone is [MacroDroid](https://www.macrodroid.com):
 
@@ -103,6 +106,8 @@ One way to get the JSON to Gadgetbridge on an Android phone is [MacroDroid](http
    ```
 
 The band updates within a minute. To turn it off, run `defaults delete dev.volkankahraman.ada bandURL`.
+
+**Buzz when a chat needs you (optional).** Once `bandURL` is set, a watch button appears next to the sound button on the island. When it is on, Ada calls the same URL with `-alert` appended (for example `.../ada-alert`) each time a chat starts waiting for you, at most once every 30 seconds. The query parameters `title` (the chat's name) and `text` (what it waits for: "Needs approval · Bash", Claude's question, or "Plan ready for review") describe it; commands and file contents are never sent. Add a second macro with the trigger **Webhook (URL)**, identifier `ada-alert`, two local string variables `title` and `text` (MacroDroid fills them from the query parameters), and the action **Display Notification** with the title `{lv=title}` and the text `{lv=text}`. Gadgetbridge forwards the notification and the band vibrates. To keep the phone quiet, set MacroDroid's notification channel to Silent; the band still vibrates.
 
 ## Project layout
 
