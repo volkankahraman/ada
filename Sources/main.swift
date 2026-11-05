@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Clicks land on the island even though the app never becomes active.
@@ -42,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var panel: KeyPanel!
     let panelSize = CGSize(width: 720, height: 900) // tall enough for a multi-question card
     var lastPending = 0
+    var storeWatch: AnyCancellable?
     var autoOpened = false
 
     var screen: NSScreen { NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0] }
@@ -64,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.hasShadow = false
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        panel.acceptsMouseMovedEvents = true // so the local monitor below sees moves over the island
         panel.contentView = HostingView(rootView: IslandView(store: store))
         layout()
         panel.orderFrontRegardless()
@@ -75,8 +78,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             self?.layout()
         }
-        // ponytail: polling the cursor is simpler and more reliable than tracking areas on a non-key panel.
-        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in self?.trackMouse() }
+        // Re-check the hit area only when something can change it: the mouse moves or clicks (anywhere, no permission
+        // needed for mouse monitors), or the store changes (a card arrives, the island resizes). No polling.
+        NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .leftMouseDragged]) { [weak self] _ in self?.trackMouse() }
+        NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .leftMouseUp]) { [weak self] e in self?.trackMouse(); return e }
+        storeWatch = store.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.trackMouse() } }
         refreshUsage()
         Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in self?.refreshUsage() }
         // Sessions fall asleep by the clock, not by an event, so redraw (and update the band) once a minute.

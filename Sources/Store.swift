@@ -112,6 +112,7 @@ final class Store: ObservableObject {
         // Opening a chat in the Claude app starts (and later ends) its process without doing anything;
         // only real activity puts a chat on the island.
         if sessions[id] == nil && (event == "SessionStart" || event == "SessionEnd") { return client.reply() }
+        let isNew = sessions[id] == nil
         var s = sessions[id] ?? Session(id: id, cwd: e["cwd"] as? String ?? "")
         if let b = headers["x-bundle"], !b.isEmpty, b != s.bundleID {
             s.bundleID = b
@@ -121,8 +122,9 @@ final class Store: ObservableObject {
             s.hostID = h
         }
         s.updated = Date()
-        // Re-read on turn boundaries (renames), and on any event while unknown, e.g. a chat already running when Ada started.
-        if s.chatTitle == nil || ["SessionStart", "UserPromptSubmit", "Stop"].contains(event),
+        // Reads a 256 KB transcript tail, so only on first sight (a chat already running when Ada started)
+        // and on turn boundaries (renames), never on every tool event.
+        if isNew || ["SessionStart", "UserPromptSubmit", "Stop"].contains(event),
            let t = Self.chatTitle(e["transcript_path"] as? String) {
             s.chatTitle = t
         }
@@ -281,10 +283,9 @@ final class Store: ObservableObject {
 
     /// ponytail: in-memory only, sessions vanish on restart. Persist if that gets annoying.
     private func prune() {
-        let now = Date()
-        sessions = sessions.filter { _, s in
-            now.timeIntervalSince(s.updated) < 86400
-        }
+        let stale = { (s: Session) in -s.updated.timeIntervalSinceNow >= 86400 }
+        // Reassigning the dict publishes a full redraw, so only do it when something is actually stale.
+        if sessions.values.contains(where: stale) { sessions = sessions.filter { !stale($0.value) } }
     }
 
     private func play(_ name: String) {
