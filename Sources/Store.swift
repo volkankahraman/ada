@@ -356,7 +356,7 @@ final class Store: ObservableObject {
         let waiting = active.filter { $0.status == .waiting }.count, working = active.filter { $0.status == .working }.count
         // The icon shows the most urgent state: thunderstorm, rain, clear (OpenWeatherMap condition codes).
         let (text, code) = waiting > 0 ? ("\(waiting) need you", 211) : working > 0 ? ("\(working) working", 500) : ("all done", 800)
-        let percent = usage.map { Int($0.percent.rounded()) } ?? 0
+        let percent = usage.map { Int($0.session.percent.rounded()) } ?? 0
         // Gadgetbridge's weather JSON is in Kelvin. A Huawei band raises today's high to at least the current temperature,
         // so only the current temperature and the air quality index are free: waiting and working go there, and the
         // usage percent, nearly always the larger number, goes in the high.

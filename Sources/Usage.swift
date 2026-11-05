@@ -4,21 +4,27 @@ import SwiftUI
 /// Claude plan limits from the OAuth usage API, using Claude Code's login in the keychain.
 /// The desktop app has no statusline, so this is the only source that works without the CLI.
 struct Usage: Equatable {
-    let percent: Double
-    let resets: Date?
+    struct Window: Equatable {
+        let percent: Double
+        let resets: Date?
+    }
+    let session: Window
+    let weekly: Window? // plans without an all-model weekly cap leave this out
 
-    /// The 5-hour session window. Weekly caps are skipped: this plan only has a model-scoped one.
     init?(_ j: [String: Any]) {
-        if let w = j["five_hour"] as? [String: Any], let p = w["utilization"] as? Double {
-            percent = p
-            resets = (w["resets_at"] as? String).flatMap(parseDate)
-        } else if let l = (j["limits"] as? [[String: Any]])?.first(where: { $0["group"] as? String == "session" }),
-                  let p = l["percent"] as? Double {
-            percent = p
-            resets = (l["resets_at"] as? String).flatMap(parseDate)
-        } else {
-            return nil
+        let limits = j["limits"] as? [[String: Any]] ?? []
+        // Prefer the classic field, fall back to the unscoped entry in `limits` (the scoped ones are per model).
+        func window(_ field: String, _ group: String) -> Window? {
+            if let w = j[field] as? [String: Any], let p = w["utilization"] as? Double {
+                return Window(percent: p, resets: (w["resets_at"] as? String).flatMap(parseDate))
+            }
+            guard let l = limits.first(where: { $0["group"] as? String == group && ($0["scope"] == nil || $0["scope"] is NSNull) }),
+                  let p = l["percent"] as? Double else { return nil }
+            return Window(percent: p, resets: (l["resets_at"] as? String).flatMap(parseDate))
         }
+        guard let s = window("five_hour", "session") else { return nil }
+        session = s
+        weekly = window("seven_day", "weekly")
     }
 }
 
@@ -137,14 +143,24 @@ struct UsageBar: View {
     let usage: Usage
 
     var body: some View {
-        let reset = (usage.resets ?? .distantFuture) < Date() // window rolled over since the last fetch
-        let p = reset ? 0 : usage.percent
         HStack(spacing: 6) {
-            Text("Claude 5h").foregroundStyle(.secondary)
-            Text("\(Int(p.rounded()))%").foregroundStyle(p < 50 ? Color.green : p < 80 ? Color.orange : Color.red)
-            if let r = usage.resets, !reset { Text(left(r)).foregroundStyle(.tertiary) }
+            Text("Claude").foregroundStyle(.secondary)
+            window("5h", usage.session)
+            if let w = usage.weekly {
+                Text("|").foregroundStyle(.quaternary)
+                window("7d", w)
+            }
         }
         .font(.system(size: 12, weight: .semibold, design: .monospaced))
+    }
+
+    @ViewBuilder
+    private func window(_ name: String, _ w: Usage.Window) -> some View {
+        let reset = (w.resets ?? .distantFuture) < Date() // window rolled over since the last fetch
+        let p = reset ? 0 : w.percent
+        Text(name).foregroundStyle(.secondary)
+        Text("\(Int(p.rounded()))%").foregroundStyle(p < 50 ? Color.green : p < 80 ? Color.orange : Color.red)
+        if let r = w.resets, !reset { Text(left(r)).foregroundStyle(.tertiary) }
     }
 
     private func left(_ d: Date) -> String {
