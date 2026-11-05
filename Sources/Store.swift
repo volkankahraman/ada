@@ -158,8 +158,8 @@ final class Store: ObservableObject {
                 s.activity = e["message"] as? String
             }
         case "PreCompact":
-            s.status = .working
-            s.activity = "Compacting context…"
+            // Claude also compacts idle chats after their turn, and no Stop follows; only label a chat that is working.
+            if s.status == .working { s.activity = "Compacting context…" }
         case "SubagentStart":
             s.subagents += 1
         case "SubagentStop":
