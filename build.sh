@@ -34,5 +34,7 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
 </dict>
 </plist>
 EOF
-codesign --force -s - "$APP"
+# Ad-hoc by default (anyone can build). Set ADA_SIGN_IDENTITY to a real certificate for local builds so macOS keeps
+# the Accessibility permission across updates; it ties permissions to the signature.
+codesign --force -s "${ADA_SIGN_IDENTITY:--}" "$APP"
 echo "Built $APP"
