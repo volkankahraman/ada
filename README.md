@@ -13,7 +13,7 @@ Works with sessions in the Claude desktop app (Code tab) and the `claude` CLI.
 - **Approve from the island.** Deny, Allow Once, Allow All (applies Claude's suggested rule), or Bypass.
 - **Answer questions.** Claude's multiple-choice questions (`AskUserQuestion`) appear as a card. A single one-choice question is answered with one click; longer ones get a Send button.
 - **Review plans.** When Claude leaves plan mode, the plan shows as formatted Markdown. Approve it, or type notes and send it back for another round.
-- **Know when you're needed.** If a chat ends its turn on a question for you, it turns orange ("Needs you") with a sound, and shows the question with a button that opens the chat.
+- **Know when you're needed.** If a chat ends its turn on a question for you, it turns orange ("Needs you") with a sound and shows the question with its options as buttons. Pick one and Ada opens the chat and sends it there. This needs Accessibility permission (System Settings, then Privacy & Security, then Accessibility); without it the reply is copied for you to paste.
 - **Jump to the chat.** Click a row to open that exact chat in the Claude desktop app, even if the window is minimized. For CLI sessions, Ada brings the terminal to the front. Opening a finished chat removes it from the list.
 - **Tidy list.** Finished chats fall asleep after 10 minutes as a gray one-line row. Remove one with its ✕, or all of them with Clear done; an empty list shrinks the island back to the notch.
 - **Plan usage.** Shows your 5-hour session usage and, on plans that have one, the weekly limit, each with when it resets.
@@ -39,6 +39,8 @@ Works with sessions in the Claude desktop app (Code tab) and the `claude` CLI.
    ```sh
    xattr -dr com.apple.quarantine ~/Applications/Ada.app
    ```
+
+Ada is not signed with a stable certificate, so macOS may ask for the Accessibility permission again after an update.
 
 ### Build from source
 
