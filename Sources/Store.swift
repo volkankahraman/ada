@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import SwiftUI
 
 enum Status: Int, Comparable {
@@ -35,7 +36,9 @@ struct Session: Identifiable {
     var appName: String?
     var hostID: String?     // Claude desktop's own id (local_…), set when the session runs in the desktop app
     var permissions: [Permission] = []
-    var ask: (question: String, options: [String])? // desktop "next step" question the turn ended on
+    /// Desktop "next step" question the turn ended on. `reply` is what the button would send; nil for app actions
+    /// (commit, create PR...) that only run inside Claude.
+    var ask: (question: String, options: [(label: String, reply: String?)])?
 
     var chatTitle: String?  // the name shown in Claude's sidebar
     /// Folder name, except for the throwaway folders the desktop app makes for sessions without a project.
@@ -146,7 +149,11 @@ final class Store: ObservableObject {
             // The desktop app's end-of-turn box. No hook waits on it, so we can only show it and open the chat.
             if tool.hasSuffix("ccd_turn__wrap_up") {
                 let actions = input?["actions"] as? [[String: Any]] ?? []
-                s.ask = (input?["ask"] as? String).map { ($0, actions.compactMap { $0["label"] as? String }) }
+                s.ask = (input?["ask"] as? String).map { q in
+                    (q, actions.compactMap { a in
+                        (a["label"] as? String).map { ($0, a["action"] == nil ? (a["message"] as? String ?? $0) : nil) }
+                    })
+                }
             }
             s.activity = describe(tool, input)
             if s.permissions.isEmpty { s.status = .working }
@@ -265,6 +272,44 @@ final class Store: ObservableObject {
         guard let b = s.bundleID, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: b) else { return }
         // Re-open like a Dock click: activate() alone is refused for a background app and leaves minimized windows in the Dock.
         NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    /// An end-of-turn option: there is no way to send into an existing chat, so copy the reply, open the chat, then
+    /// paste it (⌘V) and press Return once that chat's app is in front. Needs Accessibility; without it the text waits on the clipboard.
+    func reply(_ s: Session, _ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        focus(s)
+        let prompt = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        guard AXIsProcessTrustedWithOptions(prompt), let app = s.bundleID else { return }
+        paste(into: app, tries: 16)
+    }
+
+    /// Polls every 0.25 s (4 s max) for `app` to be frontmost, then pastes after a short beat for the chat to load.
+    /// Never pastes into anything else: if you switch away meanwhile, it gives up.
+    private func paste(into app: String, tries: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == app else {
+                if tries > 0 { self?.paste(into: app, tries: tries - 1) }
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == app else { return }
+                let src = CGEventSource(stateID: .combinedSessionState)
+                func press(_ key: CGKeyCode, _ flags: CGEventFlags) {
+                    for down in [true, false] {
+                        let e = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: down)
+                        e?.flags = flags
+                        e?.post(tap: .cghidEventTap)
+                    }
+                }
+                press(9, .maskCommand) // shortcut: key code 9 is V on ANSI/Turkish Q layouts, other layouts may differ
+                // Return a beat later, once the paste has landed, and only if that app is still in front.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == app { press(36, []) }
+                }
+            }
+        }
     }
 
     /// Hook went away: the request was answered somewhere else.

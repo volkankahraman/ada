@@ -235,7 +235,7 @@ struct SessionRow: View {
                     PermissionCard(permission: p, session: s, store: store)
                 }
             } else if let a = s.ask, s.status == .waiting {
-                AskCard(question: a.question, options: a.options) { store.focus(s) }
+                AskCard(question: a.question, options: a.options, open: { store.focus(s) }, reply: { store.reply(s, $0) })
             }
         }
         .font(.system(size: 12))
@@ -308,8 +308,9 @@ struct WelcomeCard: View {
 /// The desktop's end-of-turn question. Options are shown, not clickable: answering means sending a message in Claude.
 struct AskCard: View {
     let question: String
-    let options: [String]
+    let options: [(label: String, reply: String?)]
     let open: () -> Void
+    let reply: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -318,7 +319,21 @@ struct AskCard: View {
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
             if !options.isEmpty {
-                HStack(spacing: 6) { ForEach(options, id: \.self) { Tag(text: $0) } }
+                HStack(spacing: 8) {
+                    ForEach(Array(options.enumerated()), id: \.offset) { _, o in
+                        Button { if let r = o.reply { reply(r) } else { open() } } label: {
+                            Text(o.label)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .frame(minHeight: 28)
+                                .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                Text("Picking one opens the chat and sends it there.")
+                    .font(.system(size: 11)).foregroundStyle(.tertiary)
             }
             Button(action: open) {
                 Text("Open chat to answer")
